@@ -2459,7 +2459,7 @@ export class MemoryStore {
   backfillProject(workspacePath, options = {}) {
     const limit = Number(options.limit ?? 50)
     const projectDir = join(homedir(), '.claude', 'projects', workspaceToProjectSlug(workspacePath))
-    if (!existsSync(projectDir)) return 0
+    if (!existsSync(projectDir)) return this.backfillAllProjects(options)
     const files = readdirSync(projectDir)
       .filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'))
       .map(file => ({
@@ -2471,6 +2471,35 @@ export class MemoryStore {
       .map(item => item.path)
       .reverse()
     return this.ingestTranscriptFiles(files)
+  }
+
+  /**
+   * Scan all project dirs under ~/.claude/projects/ for transcripts.
+   * No slug-to-path conversion needed — reads directories directly.
+   * Works on macOS, Windows, and WSL without path format issues.
+   */
+  backfillAllProjects(options = {}) {
+    const limit = Number(options.limit ?? 50)
+    const projectsRoot = join(homedir(), '.claude', 'projects')
+    if (!existsSync(projectsRoot)) return 0
+    const allFiles = []
+    try {
+      for (const d of readdirSync(projectsRoot)) {
+        if (!d.startsWith('-')) continue
+        if (d.includes('tmp') || d.includes('cache') || d.includes('plugins')) continue
+        const full = join(projectsRoot, d)
+        try {
+          for (const f of readdirSync(full)) {
+            if (!f.endsWith('.jsonl') || f.startsWith('agent-')) continue
+            const fp = join(full, f)
+            allFiles.push({ path: fp, mtime: statSync(fp).mtimeMs })
+          }
+        } catch {}
+      }
+    } catch { return 0 }
+    allFiles.sort((a, b) => b.mtime - a.mtime)
+    const selected = allFiles.slice(0, limit).reverse().map(f => f.path)
+    return this.ingestTranscriptFiles(selected)
   }
 
   buildContextText() {

@@ -95,45 +95,17 @@ if (embeddingConfig?.provider || embeddingConfig?.ollamaModel) {
 const store = getMemoryStore(DATA_DIR)
 store.syncHistoryFromFiles()
 
-// Detect workspace path for transcript backfill.
-// Claude Code sets cwd to CLAUDE_PLUGIN_ROOT (cache dir), not the user's project.
-// Walk up from CLAUDE_PLUGIN_ROOT or use known project dirs.
-function detectWorkspacePath() {
-  // 1. Explicit env override
-  if (process.env.TRIB_MEMORY_WORKSPACE) return process.env.TRIB_MEMORY_WORKSPACE
-  // 2. Scan ~/.claude/projects/ for the most recently active project
-  const projectsRoot = path.join(os.homedir(), '.claude', 'projects')
-  try {
-    const dirs = fs.readdirSync(projectsRoot)
-      .filter(d => d.startsWith('-') && !d.includes('tmp') && !d.includes('cache') && !d.includes('plugins'))
-      .map(d => {
-        const full = path.join(projectsRoot, d)
-        try {
-          const jsonls = fs.readdirSync(full).filter(f => f.endsWith('.jsonl'))
-          if (jsonls.length === 0) return null
-          const newest = jsonls.reduce((best, f) => {
-            const mt = fs.statSync(path.join(full, f)).mtimeMs
-            return mt > best.mtime ? { file: f, mtime: mt } : best
-          }, { file: '', mtime: 0 })
-          return { dir: d, mtime: newest.mtime, count: jsonls.length }
-        } catch { return null }
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.mtime - a.mtime)
-    if (dirs.length > 0) {
-      // Convert slug back to path: -Users-jyp-Project → /Users/jyp/Project
-      const slug = dirs[0].dir
-      const wsPath = '/' + slug.slice(1).replace(/-/g, '/')
-      process.stderr.write(`[memory-service] detected workspace: ${wsPath} (${dirs[0].count} transcripts)\n`)
-      return wsPath
-    }
-  } catch {}
-  return process.cwd()
-}
+// WORKSPACE_PATH for cycle functions that call backfillProject(ws).
+// If the ws path doesn't resolve to a valid project dir, backfillProject
+// falls back to backfillAllProjects() which scans all project dirs directly.
+// This works on macOS, Windows, and WSL without slug-to-path conversion issues.
+const WORKSPACE_PATH = process.env.TRIB_MEMORY_WORKSPACE || process.cwd()
 
-const WORKSPACE_PATH = detectWorkspacePath()
 if (store.countEpisodes() === 0) {
-  try { store.backfillProject(WORKSPACE_PATH, { limit: 80 }) } catch { /* best effort */ }
+  try {
+    const n = store.backfillAllProjects({ limit: 80 })
+    if (n > 0) process.stderr.write(`[memory-service] initial backfill: ${n} episodes\n`)
+  } catch { /* best effort */ }
 }
 void store.warmupEmbeddings()
   .then(() => store.ensureEmbeddings({ perTypeLimit: 12 }))
