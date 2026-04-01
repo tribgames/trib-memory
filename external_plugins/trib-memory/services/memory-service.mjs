@@ -37,6 +37,7 @@ import {
   buildSemanticDayPlan,
   readMainConfig,
 } from '../lib/memory-cycle.mjs'
+import { localNow, localDateStr } from '../lib/memory-text-utils.mjs'
 
 // ── Configuration ────────────────────────────────────────────────────
 
@@ -132,7 +133,7 @@ async function checkCycles() {
   if (now - last.cycle1 >= cycle1Ms) {
     try {
       await runCycle1(store, mainConfig)
-      process.stderr.write(`[cycle1] completed at ${new Date().toISOString()}\n`)
+      process.stderr.write(`[cycle1] completed at ${localNow()}\n`)
     } catch (e) {
       process.stderr.write(`[cycle1] error: ${e.message}\n`)
     }
@@ -142,7 +143,7 @@ async function checkCycles() {
   if (now - last.cycle2 >= cycle2Ms) {
     try {
       await sleepCycle(store, mainConfig)
-      process.stderr.write(`[cycle2] completed at ${new Date().toISOString()}\n`)
+      process.stderr.write(`[cycle2] completed at ${localNow()}\n`)
     } catch (e) {
       process.stderr.write(`[cycle2] error: ${e.message}\n`)
     }
@@ -407,10 +408,9 @@ async function handleRecall(args) {
       startDate = trStart
       endDate = trEnd
     } else {
-      const now = new Date()
-      const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
-      endDate = kst.toISOString().slice(0, 10)
-      startDate = new Date(kst.getTime() - 3 * 86400000).toISOString().slice(0, 10)
+      endDate = localDateStr()
+      const threeDaysAgo = new Date(Date.now() - 3 * 86400000)
+      startDate = localDateStr(threeDaysAgo)
     }
 
     const { embedText } = await import('../lib/embedding-provider.mjs')
@@ -867,7 +867,7 @@ const httpServer = http.createServer(async (req, res) => {
     // POST /episode
     if (req.url === '/episode') {
       const id = store.appendEpisode({
-        ts: body.ts || new Date().toISOString(),
+        ts: body.ts || localNow(),
         backend: body.backend || 'trib-memory',
         channelId: body.channelId || null,
         userId: body.userId || null,

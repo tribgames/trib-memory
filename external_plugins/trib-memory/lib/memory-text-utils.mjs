@@ -309,3 +309,21 @@ export function generateQueryVariants(query) {
   // 중복 제거
   return [...new Set(variants)].slice(0, 3)
 }
+
+/**
+ * Local-timezone ISO-like timestamp: "2026-04-01T17:30:00.123"
+ * Uses system timezone (not hardcoded to KST).
+ */
+export function localNow() {
+  const d = new Date()
+  const pad = (n, len = 2) => String(n).padStart(len, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`
+}
+
+/**
+ * Local-timezone date string: "2026-04-01"
+ */
+export function localDateStr(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}

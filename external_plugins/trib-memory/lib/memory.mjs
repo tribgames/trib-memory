@@ -35,6 +35,8 @@ import {
   shortTokenMatchScore,
   tokenizeMemoryText,
   generateQueryVariants,
+  localNow,
+  localDateStr,
 } from './memory-text-utils.mjs'
 import {
   SCOPED_LANE_PRIOR,
@@ -1300,7 +1302,7 @@ export class MemoryStore {
     this.setMetaValue('embedding.current_model', getEmbeddingModelId())
     this.setMetaValue('embedding.current_dims', String(getEmbeddingDims()))
     this.setMetaValue('embedding.index_version', '2')
-    this.setMetaValue('embedding.updated_at', new Date().toISOString())
+    this.setMetaValue('embedding.updated_at', localNow())
     if (extra.vectorModel) this.setMetaValue('embedding.vector_model', extra.vectorModel)
     if (extra.vectorDims) this.setMetaValue('embedding.vector_dims', String(extra.vectorDims))
     if (extra.reason) this.setMetaValue('embedding.last_reason', extra.reason)
@@ -1407,7 +1409,7 @@ export class MemoryStore {
         if (String(sibling?.text ?? '') === text) continue
         if (rowDate && siblingDate && rowDate < siblingDate) continue
         if (lexicalOverlap < 0.35) continue
-        this.markPropositionSupersededStmt.run(row.id, seenAt ?? new Date().toISOString(), sibling.id)
+        this.markPropositionSupersededStmt.run(row.id, seenAt ?? localNow(), sibling.id)
       }
       this.linkMemoryToEntities(text, 'proposition', row.id, sourceEpisodeId)
     }
@@ -1686,8 +1688,8 @@ export class MemoryStore {
   appendEpisode(entry) {
     const clean = cleanMemoryText(entry.content)
     if (!clean) return null
-    const ts = entry.ts || new Date().toISOString()
-    const dayKey = ts.slice(0, 10)
+    const ts = entry.ts || localNow()
+    const dayKey = localDateStr(new Date(ts))
     const sourceRef = entry.sourceRef || null
     const episodeKind = entry.kind || 'message'
     this.insertEpisodeStmt.run(
@@ -1802,7 +1804,7 @@ export class MemoryStore {
         const clean = cleanMemoryText(text)
         if (!clean || clean.includes('[Request interrupted by user]')) continue
         if (isTranscriptQuarantineContent(clean)) continue
-        const ts = parsed.timestamp ?? parsed.ts ?? new Date(statSync(transcriptPath).mtimeMs).toISOString()
+        const ts = parsed.timestamp ?? parsed.ts ?? localNow()
         const sessionId = parsed.sessionId ?? ''
         const sourceRef = `transcript:${sessionId || resolve(transcriptPath)}:${index}:${role}`
         const id = this.appendEpisode({
@@ -2306,7 +2308,7 @@ export class MemoryStore {
         if (changed) {
           this.insertTaskEventStmt.run(
             row.id,
-            seenAt ?? new Date().toISOString(),
+            seenAt ?? localNow(),
             prev ? 'state_update' : 'task_created',
             stage,
             evidenceLevel,
@@ -3125,7 +3127,7 @@ export class MemoryStore {
     if (options.trace || options.debug) {
       this.appendRetrievalTrace({
         trace_id: traceId,
-        ts: new Date().toISOString(),
+        ts: localNow(),
         query: clean,
         debug: debugSummary,
       })
@@ -3723,7 +3725,7 @@ export class MemoryStore {
   }
 
   recordRetrieval(results = []) {
-    const now = new Date().toISOString()
+    const now = localNow()
     const seen = new Set()
     for (const item of results) {
       const profileKey = String(item?.subtype ?? '').trim()
