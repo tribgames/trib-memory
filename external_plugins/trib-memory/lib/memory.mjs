@@ -1815,7 +1815,7 @@ export class MemoryStore {
           userName: role,
           sessionId: sessionId || null,
           role,
-          kind: 'transcript',
+          kind: 'message',
           content: clean,
           sourceRef,
         })
