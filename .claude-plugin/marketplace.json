@@ -1,0 +1,16 @@
+{
+  "name": "tribgames",
+  "description": "TRIBGAMES plugins for Claude Code.",
+  "owner": {
+    "name": "TRIBGAMES",
+    "email": "dev@tribgames.com"
+  },
+  "plugins": [
+    {
+      "name": "trib-memory",
+      "description": "Persistent memory system with RAG retrieval, memory cycles, and context injection.",
+      "category": "productivity",
+      "source": "./external_plugins/trib-memory"
+    }
+  ]
+}
